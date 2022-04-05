@@ -8,7 +8,7 @@ const App = () => {
 
     return (
         <SafeAreaView>
-            <View>
+            <View style={{ marginTop: '40%' }}>
                 <Button title="PLAY" onPress={() => setVisible(true)} />
             </View>
             <Modal

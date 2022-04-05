@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     TouchableWithoutFeedback,
     TouchableHighlight,
     ImageBackground,
     PanResponder,
     StyleSheet,
-    Animated,
     SafeAreaView,
     Image,
     View,
@@ -18,7 +17,6 @@ import { LoadingIndicator } from './LoadingIndicator';
 
 const SCREEN_WIDTH = Dimensions.get('screen').width;
 const SCREEN_HEIGHT = Dimensions.get('screen').height;
-const ANIMATION_TIMING = 500;
 const SCRUBBER_TOLERANCE = 100;
 
 const bufferConfig = {
@@ -35,8 +33,6 @@ interface Props {
 export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
     const [loading, setLoading] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
-    const [showTimeRemaining, setShowTimeRemaining] = useState(true);
-    const [controlsVisible, setControlsVisible] = useState(false);
     const [seekerPosition, setSeekerPosition] = useState(0);
     const [userPaused, setUserPaused] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -45,34 +41,12 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
     const [scrubbing, setScrubbing] = useState(false);
     const [seeking, setSeeking] = useState(false);
 
-    const controlTimeout = useRef<ReturnType<typeof setTimeout>>();
     const seekerWidth = useRef(0);
     const primaryRef = useRef<Video>(null);
-    const alternativeRef = useRef<Video>(null);
     const seekPanResponder = useRef<PanResponderInstance>();
-
-    const animations = useMemo(
-        () => ({
-            bottomControl: {
-                marginBottom: new Animated.Value(0),
-                opacity: new Animated.Value(0)
-            },
-            topControl: {
-                marginTop: new Animated.Value(0),
-                opacity: new Animated.Value(0)
-            },
-            video: {
-                opacity: new Animated.Value(1)
-            }
-        }),
-        []
-    );
 
     const onLoadStart = () => {
         setLoading(true);
-        if (currentTime) {
-            seek(currentTime);
-        }
     };
 
     const onLoadHandler = (data: OnLoadData) => {
@@ -83,84 +57,6 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
     const onError = () => {
         setHasError(true);
         setLoading(false);
-    };
-
-    const onScreenTouch = () => {
-        // Hide
-
-        if (controlsVisible) {
-            hideControls();
-            return;
-        }
-
-        // Show
-
-        setControlsVisible(true);
-        setControlTimeout();
-
-        Animated.parallel([
-            Animated.timing(animations.topControl.opacity, {
-                toValue: 1,
-                useNativeDriver: false,
-                duration: ANIMATION_TIMING
-            }),
-            Animated.timing(animations.topControl.marginTop, {
-                toValue: 0,
-                useNativeDriver: false,
-                duration: ANIMATION_TIMING
-            }),
-            Animated.timing(animations.bottomControl.opacity, {
-                toValue: 1,
-                useNativeDriver: false,
-                duration: ANIMATION_TIMING
-            }),
-            Animated.timing(animations.bottomControl.marginBottom, {
-                toValue: 0,
-                useNativeDriver: false,
-                duration: ANIMATION_TIMING
-            })
-        ]).start();
-    };
-
-    const setControlTimeout = () => {
-        clearControlTimeout();
-        controlTimeout.current = setTimeout(() => {
-            hideControls();
-        }, 5000);
-    };
-
-    const clearControlTimeout = () => {
-        if (controlTimeout.current) {
-            clearTimeout(controlTimeout.current);
-        }
-    };
-
-    const hideControls = () => {
-        setControlsVisible(false);
-        clearControlTimeout();
-
-        Animated.parallel([
-            Animated.timing(animations.topControl.opacity, {
-                toValue: 0,
-                duration: ANIMATION_TIMING,
-                useNativeDriver: false
-            }),
-            Animated.timing(animations.topControl.marginTop, {
-                toValue: -100,
-                duration: ANIMATION_TIMING,
-                useNativeDriver: false
-            }),
-            Animated.timing(animations.bottomControl.opacity, {
-                toValue: 0,
-                duration: ANIMATION_TIMING,
-                useNativeDriver: false
-            }),
-            Animated.timing(animations.bottomControl.marginBottom, {
-                toValue: -100,
-                duration: ANIMATION_TIMING,
-                useNativeDriver: false
-            })
-        ]).start();
     };
 
     const setPosition = (position: number) => {
@@ -183,14 +79,12 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
         // Scrubbing ended while waiting for seek to finish
 
         if (!scrubbing) {
-            setControlTimeout();
             setIsPaused(userPaused);
         }
     };
 
     const seek = (time: number) => {
         primaryRef.current?.seek(time, SCRUBBER_TOLERANCE);
-        alternativeRef.current?.seek(time, SCRUBBER_TOLERANCE);
     };
 
     useEffect(() => {
@@ -201,7 +95,6 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
             onPanResponderGrant: (event, _gestureState) => {
                 setPosition(event.nativeEvent.locationX);
 
-                clearControlTimeout();
                 setIsPaused(true);
                 setScrubbing(true);
             },
@@ -244,22 +137,18 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
                 // Set final seek position
 
                 seek(newTime);
-                setControlTimeout();
                 setIsPaused(userPaused);
             }
         });
-
-        return () => clearControlTimeout();
     });
 
-    const renderControl = (children: JSX.Element | JSX.Element[], onPress: () => void, style = {}) => {
+    const renderControl = (children: JSX.Element | JSX.Element[], onPress: null | (() => void), style = {}) => {
         return (
             <TouchableHighlight
                 underlayColor="transparent"
                 activeOpacity={0.3}
                 onPress={() => {
-                    setControlTimeout();
-                    onPress();
+                    onPress?.();
                 }}
                 style={[styles.controls.control, style]}>
                 {children}
@@ -269,24 +158,17 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
 
     const renderBack = () => {
         return (
-            <Animated.View
-                style={[
-                    styles.controls.top,
-                    {
-                        opacity: animations.topControl.opacity,
-                        marginTop: animations.topControl.marginTop
-                    }
-                ]}>
+            <View style={[styles.controls.top]}>
                 <ImageBackground
-                    source={require('~/assets/top-vignette.png')}
+                    source={require('./assets/top-vignette.png')}
                     style={[styles.controls.column]}
                     imageStyle={styles.controls.vignette}>
                     <SafeAreaView style={styles.controls.topControlGroup}>
-                        {renderControl(<Image source={require('~/assets/back.png')} />, () => onFinished())}
+                        {renderControl(<Image source={require('./assets/back.png')} />, () => onFinished())}
                         <View style={styles.controls.pullRight} />
                     </SafeAreaView>
                 </ImageBackground>
-            </Animated.View>
+            </View>
         );
     };
 
@@ -300,16 +182,9 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
         const playPauseControl = renderPlayPause();
 
         return (
-            <Animated.View
-                style={[
-                    styles.controls.bottom,
-                    {
-                        opacity: animations.bottomControl.opacity,
-                        marginBottom: animations.bottomControl.marginBottom
-                    }
-                ]}>
+            <View style={[styles.controls.bottom]}>
                 <ImageBackground
-                    source={require('~/assets/bottom-vignette.png')}
+                    source={require('./assets/bottom-vignette.png')}
                     style={[styles.controls.column]}
                     imageStyle={[styles.controls.vignette]}>
                     {seekbarControl}
@@ -318,7 +193,7 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
                         {timerControl}
                     </SafeAreaView>
                 </ImageBackground>
-            </Animated.View>
+            </View>
         );
     };
 
@@ -347,7 +222,7 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
     };
 
     const renderPlayPause = () => {
-        let image = isPaused === true ? require('~/assets/play.png') : require('~/assets/pause.png');
+        let image = isPaused === true ? require('./assets/play.png') : require('./assets/pause.png');
 
         const toggle = () => {
             setIsPaused(!isPaused);
@@ -365,12 +240,12 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
     };
 
     const renderTimer = () => {
-        const time = showTimeRemaining ? `-${formatTime(duration - currentTime)}` : formatTime(currentTime);
+        const time = formatTime(currentTime);
         return renderControl(
             <Text allowFontScaling={false} style={styles.controls.timerText}>
                 {time}
             </Text>,
-            () => setShowTimeRemaining(!showTimeRemaining),
+            null,
             styles.controls.timer
         );
     };
@@ -382,7 +257,7 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
 
         return (
             <View style={styles.error.container}>
-                <Image source={require('~/assets/error-icon.png')} style={styles.error.icon} />
+                <Image source={require('./assets/error-icon.png')} style={styles.error.icon} />
                 <Text allowFontScaling={false} style={styles.error.text}>
                     Video unavailable
                 </Text>
@@ -391,11 +266,11 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
     };
 
     return (
-        <TouchableWithoutFeedback onPress={onScreenTouch} style={styles.player.container}>
+        <TouchableWithoutFeedback style={styles.player.container}>
             <View style={styles.player.container}>
                 <Video
                     source={{
-                        uri: 'https://assets.sideway.services/timeline/hartley-e001-s001a-01-2b6d4c/stream/index.m3u8'
+                        uri: 'https://cdn81168665.blazingcdn.net/timeline/hartley-e001-s001a-01-2b6d4c/stream/index.m3u8'
                     }}
                     ref={primaryRef}
                     resizeMode={'contain'}
