@@ -27,10 +27,11 @@ const bufferConfig = {
 };
 
 interface Props {
+    start: number;
     onFinished: () => void;
 }
 
-export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
+export const VideoPlayer: React.FC<Props> = function ({ start, onFinished }) {
     const [loading, setLoading] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [seekerPosition, setSeekerPosition] = useState(0);
@@ -47,6 +48,9 @@ export const VideoPlayer: React.FC<Props> = function ({ onFinished }) {
 
     const onLoadStart = () => {
         setLoading(true);
+        if (start) {
+            seek(start);
+        }
     };
 
     const onLoadHandler = (data: OnLoadData) => {

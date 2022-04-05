@@ -4,12 +4,19 @@ import { VideoPlayer } from './VideoPlayer';
 
 const App = () => {
     const [visible, setVisible] = useState(false);
+    const [start, setStart] = useState(0);
     const hideModal = () => setVisible(false);
+
+    const play = (from: number) => {
+        setStart(from);
+        setVisible(true);
+    };
 
     return (
         <SafeAreaView>
             <View style={{ marginTop: '40%' }}>
-                <Button title="PLAY" onPress={() => setVisible(true)} />
+                <Button title="PLAY (start)" onPress={() => play(0)} />
+                <Button title="PLAY (1 second in)" onPress={() => play(1)} />
             </View>
             <Modal
                 visible={visible}
@@ -20,7 +27,7 @@ const App = () => {
                 <View style={styles.outter}>
                     <StatusBar hidden />
                     <View style={styles.inner}>
-                        <VideoPlayer onFinished={hideModal} />
+                        <VideoPlayer start={start} onFinished={hideModal} />
                     </View>
                 </View>
             </Modal>
